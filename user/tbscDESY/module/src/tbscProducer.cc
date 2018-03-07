@@ -101,7 +101,7 @@ private:
   std::string m_tbsc_db;
   std::string m_tbsc_tab_uni;
   std::string m_tbsc_tab_data;
-  
+
   unsigned int m_s_intvl;
   //std::string m_tbsc_mask;
   std::vector<std::string> m_tbsc_mask;
@@ -269,14 +269,28 @@ void tbscProducer::Mainloop(){
   
   int acounter=0;
   std::string latest_update="NULL";
-  //  SQLCHAR* checkUpdate= (SQLCHAR*)"select UPDATE_TIME from information_schema.tables where TABLE_SCHEMA='aidaTest' and TABLE_NAME='aidaSC';";
-  SQLCHAR* checkUpdate= (SQLCHAR*)("select UPDATE_TIME from information_schema.tables where TABLE_SCHEMA='"+m_tbsc_db+"' and TABLE_NAME='"+m_tbsc_tab_data+"';").c_str();
+
+  //SQLCHAR* checkUpdate= (SQLCHAR*)"select UPDATE_TIME from information_schema.tables where TABLE_SCHEMA='aidaTest' and TABLE_NAME='aidaSC';";
+  std::string checkUpdate_str = "select UPDATE_TIME from information_schema.tables where TABLE_SCHEMA='"+m_tbsc_db+"' and TABLE_NAME='"+m_tbsc_tab_data+"';";
+  SQLCHAR* checkUpdate= (SQLCHAR*)checkUpdate_str.c_str();
+
   std::map<std::string, std::map<std::string, std::string>> sc_data;
   do{
+    /*sleep for m_s_invl seconds, but awake every second to check status*/
+    if(acounter!=0){
+      for( int i_intvl=m_s_intvl; i_intvl>=0; i_intvl--){
+	auto tp_next = std::chrono::steady_clock::now() +  std::chrono::seconds(1);
+	std::this_thread::sleep_until(tp_next);
+	if(m_exit_of_run) break;
+      }
+    }
+    acounter++;
+    
     printf(" #%d check update_time <-|\n", acounter);
     SQLFreeStmt(m_stmt,SQL_CLOSE);
-    SQLExecDirect(m_stmt, checkUpdate, SQL_NTS);
 
+    SQLExecDirect(m_stmt, checkUpdate, SQL_NTS);
+    
     if (SQL_SUCCEEDED(SQLFetch(m_stmt))){
       SQLLEN indicator;
       char buf_ut[512];
@@ -289,17 +303,24 @@ void tbscProducer::Mainloop(){
 	  latest_update=std::string(buf_ut);
 
 	  sc_data.clear();
+
+	  std::string sqlcli="select * from "+m_tbsc_tab_data+" order by timer desc limit 2;";
 	  odbcFetchData(m_stmt,
 			//(SQLCHAR*)"select * from aidaSC order by timer desc limit 2;",
-			(SQLCHAR*)("select * from "+m_tbsc_tab_data+" order by timer desc limit 2;").c_str(),
+			(SQLCHAR*)sqlcli.c_str(),
 			m_columns,
 			sc_data);
-	  
+	    
 	}else {
-	  printf("\tSame as before.\n");
+	  printf("\tSame as before. (no event registered.)\n");
+	  continue;
 	}
 	if (m_debug) printNestedMap(sc_data);
       }
+    }else{
+      odbcExtractError("[Error] SQL_ExecDirect: ", m_stmt, SQL_HANDLE_STMT);
+      if (m_debug) printf("[debug] no event register due to above Error. -> no event registered.");
+      continue;
     }
 
     auto rawevt = eudaq::Event::MakeUnique("SCRawEvt");
@@ -327,15 +348,8 @@ void tbscProducer::Mainloop(){
     }
 
     SendEvent(std::move(rawevt)); 
-    
-    /*sleep for m_s_invl seconds, but awake every second to check status*/
-    for( int i_intvl=m_s_intvl; i_intvl>=0; i_intvl--){
-      auto tp_next = std::chrono::steady_clock::now() +  std::chrono::seconds(1);
-      std::this_thread::sleep_until(tp_next);
-      if(m_exit_of_run) break;
-    }
-    acounter++;
-    
+   
+   
   }while(!m_exit_of_run);
 
   
@@ -539,6 +553,8 @@ void tbscProducer::odbcFetchData(SQLHSTMT stmt,
       ret = SQLGetData(stmt, icol, SQL_C_CHAR,
   		       buf, sizeof (buf),
   		       &indicator);
+      if (!(SQL_SUCCEEDED(ret)) ) odbcExtractError("[Error] 'SQLGetData' error ", stmt, SQL_HANDLE_STMT);
+      
       SQLRETURN ret_des =   SQLDescribeCol (
 			    stmt,
 			    icol,
@@ -550,6 +566,8 @@ void tbscProducer::odbcFetchData(SQLHSTMT stmt,
 			    NULL,
 			    NULL
 			    );
+      if ( !(SQL_SUCCEEDED(ret_des)) ) odbcExtractError("[Error] 'SQLDescribeCol' error ", stmt, SQL_HANDLE_STMT);
+
       if (SQL_SUCCEEDED(ret) && SQL_SUCCEEDED(ret_des)) {
   	/* Handle null columns */
   	if (indicator == SQL_NULL_DATA) strcpy(buf, "NULL");
@@ -564,7 +582,11 @@ void tbscProducer::odbcFetchData(SQLHSTMT stmt,
 	myss>>colName_str;
 	data.emplace( colName_str, std::string(buf));
       }
+      else
+	printf("\tThis shall not happen...\n");
+        
     }
+    
     data_map.emplace(std::to_string(row), data);
   }
   printf("%s\n",std::string(20,'*').c_str());
