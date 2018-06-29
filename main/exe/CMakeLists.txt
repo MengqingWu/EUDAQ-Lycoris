@@ -19,11 +19,6 @@ add_executable(${EXE_CLI_DATACOL} src/euCliConverter.cxx)
 target_link_libraries(${EXE_CLI_DATACOL} ${EUDAQ_CORE_LIBRARY} ${EUDAQ_THREADS_LIB})
 list(APPEND INSTALL_TARGETS ${EXE_CLI_DATACOL})
 
-set(EXE_CLI_DATACON tbscCliConverter)
-add_executable(${EXE_CLI_DATACON} src/tbscCliConverter.cxx)
-target_link_libraries(${EXE_CLI_DATACON} ${EUDAQ_CORE_LIBRARY} ${EUDAQ_THREADS_LIB})
-list(APPEND INSTALL_TARGETS ${EXE_CLI_DATACON})
-
 set(EXE_CLI_RUN euCliRun)
 add_executable(${EXE_CLI_RUN} src/euCliRun.cxx)
 target_link_libraries(${EXE_CLI_RUN} ${EUDAQ_CORE_LIBRARY} ${EUDAQ_THREADS_LIB})
@@ -48,6 +43,11 @@ set(EXE_CLI_READER euCliReader)
 add_executable(${EXE_CLI_READER} src/euCliReader.cxx)
 target_link_libraries(${EXE_CLI_READER} ${EUDAQ_CORE_LIBRARY} ${EUDAQ_THREADS_LIB})
 list(APPEND INSTALL_TARGETS ${EXE_CLI_READER})
+
+set(EXE_CLI_TLU_READER euCliTluReader)
+add_executable(${EXE_CLI_TLU_READER} src/euCliTluReader.cxx)
+target_link_libraries(${EXE_CLI_TLU_READER} ${EUDAQ_CORE_LIBRARY} ${EUDAQ_THREADS_LIB})
+list(APPEND INSTALL_TARGETS ${EXE_CLI_TLU_READER})
 
 install(TARGETS ${INSTALL_TARGETS}
   DESTINATION bin
