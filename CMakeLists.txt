@@ -74,11 +74,11 @@ set(CMAKE_INSTALL_RPATH ${EUDAQ_INSTALL_RPATH})
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 add_subdirectory(main)
-add_subdirectory(user)
-add_subdirectory(monitors)
 add_subdirectory(extra)
-add_subdirectory(gui)
 add_subdirectory(doc)
+add_subdirectory(gui)
+add_subdirectory(monitors)
+add_subdirectory(user)
 
 # Uninstall Target #
 if(NOT TARGET uninstall)
@@ -106,3 +106,37 @@ endif()
 # endif()
 
 include(PrintSystemInformation)
+
+# eudaqConfig.cmake
+
+export(PACKAGE eudaq)
+
+
+if(DEFINED EUDAQ_CORE_LIBRARY)
+  list(APPEND CONF_EUDAQ_LIBRARIES eudaq_${EUDAQ_CORE_LIBRARY})
+endif()
+
+if(DEFINED EUDAQ_LCIO_LIBRARY)
+  list(APPEND CONF_EUDAQ_LIBRARIES eudaq_${EUDAQ_LCIO_LIBRARY})
+endif()
+
+set(CONF_INCLUDE_DIRS "\${EUDAQ_INSTALL_DIR}/include")
+configure_file("${PROJECT_SOURCE_DIR}/cmake/eudaqConfig.cmake.in"
+  "${PROJECT_BINARY_DIR}/eudaqConfig.cmake" @ONLY)
+
+configure_file("${PROJECT_SOURCE_DIR}/cmake/eudaqConfigVersion.cmake.in"
+  "${PROJECT_BINARY_DIR}/eudaqConfigVersion.cmake" @ONLY)
+
+install(FILES
+  "${PROJECT_BINARY_DIR}/eudaqConfig.cmake"
+  "${PROJECT_BINARY_DIR}/eudaqConfigVersion.cmake"
+  DESTINATION cmake
+  COMPONENT dev)
+
+# Install the export set for use with the install-tree
+install(EXPORT eudaqTargets
+  NAMESPACE eudaq_
+  DESTINATION cmake
+  COMPONENT dev)
+
+MESSAGE(STATUS "Check your configuration/flags with: cmake -L")
